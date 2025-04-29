@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:flutter_soloud_example/buffer_stream/ui/buffer_widget.dart';
 import 'package:logging/logging.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 /// Example of how to generate PCM audio inside an `Isolate` and play them.
 ///
@@ -37,11 +38,7 @@ void main() async {
   /// Initialize the player.
   await SoLoud.instance.init();
 
-  runApp(
-    const MaterialApp(
-      home: Generate(),
-    ),
-  );
+  runApp(const MaterialApp(home: Generate()));
 }
 
 @pragma('vm:entry-point')
@@ -71,10 +68,7 @@ Future<void> generateTone(Map<String, dynamic> args) async {
     audioData[i] = amplitude;
   }
 
-  SoLoud.instance.addAudioDataStream(
-    sound,
-    audioData.buffer.asUint8List(),
-  );
+  SoLoud.instance.addAudioDataStream(sound, audioData.buffer.asUint8List());
   SoLoud.instance.setDataIsEnded(sound);
 }
 
@@ -171,6 +165,21 @@ class _GenerateState extends State<Generate> {
   AudioSource? tone;
   AudioSource? bouncing;
   AudioSource? siren;
+  SoundHandle? bouncingHandle;
+  late final SpeechToText _speechToText;
+  bool isSTTInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future(() async {
+      _speechToText = SpeechToText();
+      await _speechToText.initialize();
+      setState(() {
+        isSTTInitialized = true;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,26 +237,49 @@ class _GenerateState extends State<Generate> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                OutlinedButton(
-                  onPressed: () async {
-                    if (tone == null) return;
-                    await SoLoud.instance.play(tone!, looping: true);
-                  },
-                  child: const Text('Play tone'),
-                ),
-                OutlinedButton(
-                  onPressed: () async {
-                    if (siren == null) return;
-                    await SoLoud.instance.play(siren!, looping: true);
-                  },
-                  child: const Text('Play siren'),
-                ),
+                // OutlinedButton(
+                //   onPressed: () async {
+                //     if (tone == null) return;
+                //     await SoLoud.instance.play(tone!, looping: true);
+                //   },
+                //   child: const Text('Play tone'),
+                // ),
+                // OutlinedButton(
+                //   onPressed: () async {
+                //     if (siren == null) return;
+                //     await SoLoud.instance.play(siren!, looping: true);
+                //   },
+                //   child: const Text('Play siren'),
+                // ),
                 OutlinedButton(
                   onPressed: () async {
                     if (bouncing == null) return;
-                    await SoLoud.instance.play(bouncing!, looping: true);
+                    bouncingHandle = await SoLoud.instance.play(
+                      bouncing!,
+                      looping: true,
+                    );
                   },
                   child: const Text('Play bouncing'),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    if (bouncingHandle == null) return;
+                    SoLoud.instance.pauseSwitch(bouncingHandle!);
+                  },
+                  child: const Text('Pause Switch'),
+                ),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  onPressed: _startSTT,
+                  child: const Text('Start STT'),
+                ),
+                OutlinedButton(
+                  onPressed: _stopSTT,
+                  child: const Text('Stop STT'),
                 ),
               ],
             ),
@@ -261,12 +293,36 @@ class _GenerateState extends State<Generate> {
               child: const Text('dispose all sounds'),
             ),
             gap,
-            BufferBar(sound: tone, startingMb: 1, label: 'tone'),
-            BufferBar(sound: siren, startingMb: 1, label: 'siren'),
+            if (isSTTInitialized) ...[
+              Text(
+                'STT status=${_speechToText.lastStatus}',
+                style: const TextStyle(fontSize: 24),
+              ),
+              Text(
+                _speechToText.lastRecognizedWords,
+                style: const TextStyle(fontSize: 24),
+              ),
+            ],
+            // BufferBar(sound: tone, startingMb: 1, label: 'tone'),
+            // BufferBar(sound: siren, startingMb: 1, label: 'siren'),
             BufferBar(sound: bouncing, startingMb: 1, label: 'bouncing'),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _startSTT() async {
+    await _speechToText.listen(
+      onResult: (result) {
+        dev.log('[STT Test] stt result: $result');
+        setState(() {});
+      },
+    );
+  }
+
+  Future<void> _stopSTT() async {
+    await _speechToText.cancel();
+    setState(() {});
   }
 }

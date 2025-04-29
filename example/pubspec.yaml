@@ -25,6 +25,11 @@ dependencies:
   logging: ^1.2.0
 
   web_socket_channel: ^3.0.1
+  #https://pub.dev/packages/speech_to_text
+  speech_to_text: ^7.0.0
+
+
+
 
 dev_dependencies:
   flutter_test:
