@@ -175,6 +175,9 @@ class _GenerateState extends State<Generate> {
     Future(() async {
       _speechToText = SpeechToText();
       await _speechToText.initialize();
+      _speechToText.errorListener = (error) {
+        dev.log('[STT Test] stt error: $error');
+      };
       setState(() {
         isSTTInitialized = true;
       });
